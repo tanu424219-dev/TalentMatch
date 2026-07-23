@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enterprise Talent Matrix & ATS Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bs-body-bg: #f8fafc;
+            --primary-glow: #3b82f6;
+        }
+        body { background-color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; }
+        .navbar { background: #0f172a !important; border-bottom: 1px solid #334155; }
+        .navbar-brand { font-weight: 700; letter-spacing: 0.5px; color: #f8fafc !important; }
+        .card { border: none; border-radius: 14px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); background: #ffffff; transition: all 0.2s ease; }
+        .card:hover { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08); }
+        .progress { border-radius: 10px; background-color: #f1f5f9; }
+        .badge-skill { background-color: #eff6ff; color: #2563eb; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid #dbeafe; font-size: 12px; }
+        
+        /* Status Badges */
+        .status-Applied { background-color: #64748b; color: white; }
+        .status-Shortlisted { background-color: #10b981; color: white; }
+        .status-On-Hold { background-color: #f59e0b; color: #fff; }
+        .status-Rejected { background-color: #ef4444; color: white; }
+
+        /* Print / PDF Mode */
+        @media print {
+            body { background-color: white; }
+            .navbar, .row.mb-4, .row.mb-5, .card.bg-light, .no-print { display: none !important; }
+            .candidate-card-wrapper { display: none !important; }
+            .candidate-card-wrapper.printing { display: block !important; width: 100% !important; position: absolute; top: 0; left: 0; box-shadow: none !important; border: none !important; }
+        }
+    </style>
+    <script>
+        function printCandidateReport(cardId) {
+            const cards = document.querySelectorAll('.candidate-card-wrapper');
+            cards.forEach(c => c.classList.remove('printing'));
+            const target = document.getElementById(cardId);
+            if (target) {
+                target.classList.add('printing');
+                window.print();
+            }
+        }
+    </script>
+</head>
+<body>
+
+<!-- Corporate Navbar -->
+<nav class="navbar navbar-dark shadow-sm py-3 px-4 no-print">
+    <a class="navbar-brand" href="#"><i class="fas fa-network-wired me-2 text-primary"></i>Enterprise Talent Matrix <span class="badge bg-primary fs-6 ms-2">ATS Pro</span></a>
+    <span class="text-light fs-6">Client: <strong class="text-warning">{{ client.company_name }}</strong></span>
+</nav>
+
+<div class="container my-5">
+    
+    <!-- Header & Search -->
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-7">
+            <h2 class="fw-bold text-dark mb-1">Candidate Evaluation & Pipeline</h2>
+            <p class="text-muted">Required: <span class="badge bg-secondary">{{ client.required_tech }}</span> | Min Exp: {{ client.min_experience_years }} Yrs | Max Budget: ₹{{ client.max_budget_lps }} LPA</p>
+        </div>
+        <div class="col-md-5">
+            <form method="GET" class="d-flex shadow-sm rounded-3 bg-white p-1 border">
+                <input type="text" name="q" class="form-control border-0 shadow-none" placeholder="Search by skill or name...">
+                <button type="submit" class="btn btn-primary px-4 rounded-2"><i class="fas fa-search"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Analytics Dashboard Section (Charts) -->
+    <div class="row mb-5">
+        <div class="col-md-6 mb-3">
+            <div class="card p-4">
+                <h5 class="fw-bold text-secondary mb-3"><i class="fas fa-chart-pie me-2 text-primary"></i>Hiring Pipeline Overview</h5>
+                <canvas id="pipelineChart" style="max-height: 200px;"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card p-4">
+                <h5 class="fw-bold text-secondary mb-3"><i class="fas fa-chart-bar me-2 text-success"></i>Salary Expectation vs Max Budget</h5>
+                <canvas id="salaryChart" style="max-height: 200px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Action Form Container -->
+    <form method="POST">
+        {% csrf_token %}
+        <div class="card p-3 mb-4 bg-white border shadow-sm no-print">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span class="fw-bold text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Bulk Workflow Actions:</span>
+                <div class="d-flex gap-2">
+                    <select name="bulk_action" class="form-select form-select-sm shadow-none" style="width: 200px;" required>
+                        <option value="">Choose status...</option>
+                        <option value="Shortlisted">Move to Shortlisted</option>
+                        <option value="On-Hold">Move to On-Hold</option>
+                        <option value="Rejected">Move to Rejected</option>
+                    </select>
+                    <button type="submit" class="btn btn-dark btn-sm px-4 fw-bold">Apply to Selected</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candidate Cards List -->
+        <div class="row">
+            {% for item in results %}
+            <div class="col-md-12 mb-4 candidate-card-wrapper" id="cand-card-{{ forloop.counter }}">
+                <div class="card p-4 bg-white border-start border-4 {% if item.candidate.status == 'Shortlisted' %}border-success{% elif item.candidate.status == 'Rejected' %}border-danger{% elif item.candidate.status == 'On-Hold' %}border-warning{% else %}border-secondary{% endif %}">
+                    <div class="row align-items-center">
+                        
+                        <!-- Checkbox & Basic Info -->
+                        <div class="col-md-4 border-end">
+                            <div class="d-flex align-items-center mb-2">
+                                <input type="checkbox" name="selected_candidates" value="{{ item.candidate.id }}" class="form-check-input me-2 no-print shadow-none" style="transform: scale(1.2);">
+                                <h4 class="fw-bold text-primary mb-0 me-2">{{ item.candidate.name }}</h4>
+                                <span class="badge status-{{ item.status }} px-2.5 py-1">{{ item.status }}</span>
+                            </div>
+                            <p class="text-muted mb-1 small"><i class="fas fa-envelope me-1 text-secondary"></i> {{ item.candidate.email }}</p>
+                            <p class="mb-1 small"><strong>Qualification:</strong> {{ item.candidate.qualification }}</p>
+                            <p class="mb-2 small"><strong>Experience:</strong> {{ item.candidate.experience_years }} Years (Level: <strong class="text-dark">{{ item.level }}</strong>)</p>
+                            
+                            <!-- Progress Bar for Level -->
+                            <div class="mt-2">
+                                <div class="d-flex justify-content-between text-muted" style="font-size: 11px;">
+                                    <span>Beginner</span><span>Intermediate</span><span>Expert</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar {% if item.level == 'Beginner' %}bg-info w-25{% elif item.level == 'Intermediate' %}bg-warning w-50{% else %}bg-success w-100{% endif %}" role="progressbar"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Score Breakdown with Reasons -->
+                        <div class="col-md-4 border-end px-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h5 class="fw-bold text-dark mb-0">Total Score</h5>
+                                <h3 class="fw-bold text-success mb-0">{{ item.total_score }} <small class="text-muted fs-6">/100</small></h3>
+                            </div>
+                            <small class="text-muted d-block mb-2">ATS Quality Score: <span class="text-dark fw-bold">{{ item.candidate.ats_score }}%</span></small>
+                            <hr class="my-2 text-muted opacity-25">
+                            
+                            <div class="small mb-1">
+                                <strong>Skills Match (Max 40):</strong> <span class="text-primary fw-semibold">{{ item.skill_score }} pts</span>
+                            </div>
+                            <div class="small mb-1">
+                                <strong>Experience Match:</strong> <span class="text-success fw-semibold">{{ item.exp_score }} pts</span> <br>
+                                <span class="text-muted" style="font-size: 11px;"><i>{{ item.exp_reason }}</i></span>
+                            </div>
+                            <div class="small mb-3">
+                                <strong>Budget Proximity:</strong> <span class="text-warning text-dark fw-semibold">{{ item.budget_score }} pts</span> <br>
+                                <span class="text-muted" style="font-size: 11px;"><i>{{ item.budget_reason }}</i></span>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for s in item.matched_skills %}
+                                    <span class="badge badge-skill">{{ s }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Complete Report Details & Skill Gaps with Courses/Tests -->
+                        <div class="col-md-4 ps-4">
+                            <div class="bg-light p-3 rounded-3 mb-3 small border">
+                                <p class="mb-1"><strong>Previous Companies:</strong> {{ item.candidate.previous_companies|default:"N/A" }}</p>
+                                <p class="mb-1"><strong>Projects:</strong> {{ item.candidate.projects_summary|default:"N/A" }}</p>
+                                <p class="mb-0"><strong>Expected Salary:</strong> <span class="text-success fw-bold">₹{{ item.candidate.expected_salary_lps }} LPA</span></p>
+                            </div>
+
+                            <!-- Missing Skills & Advanced Training Recommendations -->
+                            {% if item.missing_skills %}
+                            <div class="text-danger small mb-3 bg-danger bg-opacity-10 p-2.5 rounded-3 border border-danger border-opacity-25">
+                                <strong class="d-flex align-items-center mb-1"><i class="fas fa-exclamation-triangle me-1"></i> Improvement Areas & Recommendations:</strong>
+                                <div class="ps-1 mt-1" style="font-size: 11px;">
+                                    {% for skill, recs in item.training_suggestions.items %}
+                                        <div class="mb-2 border-bottom border-danger border-opacity-10 pb-1 last:border-0">
+                                            <span class="fw-bold text-dark">Missing {{ skill }}:</span>
+                                            <ul class="ps-3 mb-0 text-muted">
+                                                <li>📖 {{ recs.course }}</li>
+                                                <li>📺 {{ recs.video }}</li>
+                                                <li>📝 {{ recs.test }}</li>
+                                            </ul>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Full Report Print & Download Button -->
+                            <div class="d-grid no-print">
+                                <button type="button" onclick="printCandidateReport('cand-card-{{ forloop.counter }}')" class="btn btn-outline-dark btn-sm fw-bold py-2">
+                                    <i class="fas fa-file-pdf text-danger me-2"></i> Print / Download Full Report
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-md-12 text-center py-5">
+                <h4 class="text-muted">No candidates found. Upload resumes through Django Admin.</h4>
+            </div>
+            {% endfor %}
+        </div>
+    </form>
+</div>
+
+<!-- Chart.js Script Integration -->
+<script>
+    const ctx1 = document.getElementById('pipelineChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'pie',
+        data: {
+            labels: ['Shortlisted', 'Rejected', 'Other/Applied'],
+            datasets: [{
+                data: [{{ shortlisted_count }}, {{ rejected_count }}, {{ total_applicants }} - ({% if shortlisted_count %}{{ shortlisted_count }}{% else %}0{% endif %} + {% if rejected_count %}{{ rejected_count }}{% else %}0{% endif %})],
+                backgroundColor: ['#10b981', '#ef4444', '#64748b']
+            }]
+        },
+        options: {
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    const ctx2 = document.getElementById('salaryChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: [{% for d in salary_budget_data %}"{{ d.name }}",{% endfor %}],
+            datasets: [{
+                label: 'Expected Salary (LPA)',
+                data: [{% for d in salary_budget_data %}{{ d.expected }},{% endfor %}],
+                backgroundColor: '#3b82f6',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color: '#f1f5f9' } }
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
