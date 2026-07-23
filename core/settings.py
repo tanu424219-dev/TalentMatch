@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-jl39_%a)^s=j8de0o$um3wu8ljhgrzg*gfla_k5@qgddd@@ca(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['talentmatch-vuv3.onrender.com',''127.0.0.1','localhost']
 
 
 # Application definition
