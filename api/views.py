@@ -11,18 +11,21 @@ def match_resources(request, client_id):
         if selected_ids and action:
             candidates_to_update = DeveloperCandidate.objects.filter(id__in=selected_ids)
             for cand in candidates_to_update:
-                # Per-Company Status Save
-                Application.objects.update_or_create(
-                    candidate=cand,
-                    client=client,
-                    defaults={'status': action}
-                )
-
-                try:
-                    send_automated_status_email(cand)
-                except Exception as e:
-                    print(f"Email error: {e}")
-                
+            # Candidate Status DB Update
+            Application.objects.update_or_create(
+                candidate=cand,
+                client=client,
+                defaults={'status': action}
+            )
+            
+            # Dynamic status sync for email function
+            cand.status = action
+            
+            # Crash-proof Email Trigger
+            try:
+                send_automated_status_email(cand)
+            except Exception as mail_err:
+                print(f"Email Failed for {cand.name}: {mail_err}")
 
     query = request.GET.get('q')
     if query:

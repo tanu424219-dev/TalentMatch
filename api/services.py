@@ -34,41 +34,54 @@ def parse_resume_pdf(file_path):
     return extracted_text, email, ", ".join(found_skills), ats_score
 
 
-def generate_ics_calendar_invite(candidate_email, interview_date_str):
-    """Generates a professional .ics calendar file for interview scheduling"""
-    cal = Calendar()
-    cal.add('prodid', '-//Enterprise Talent Matrix//HR System//EN')
-    cal.add('version', '2.0')
-
-    event = Event()
-    event.add('summary', 'Technical Interview - Enterprise Talent Matrix')
-    event.add('description', 'Your profile has been shortlisted! Please join the interview using the shared corporate calendar link.')
-
-    start_time = datetime.datetime.now() + datetime.timedelta(days=1)
-    event.add('dtstart', start_time)
-    event.add('dtend', start_time + datetime.timedelta(hours=1))
-    
-    cal.add_component(event)
-    return cal.to_ical()
-
+import datetime
+from django.core.mail import EmailMessage
+from django.conf import settings
 
 def send_automated_status_email(candidate):
-    """Sends automated emails based on Status (Rejection / Shortlisted Interview Invite with Calendar & Link)"""
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@enterprise.com')
-
-    if candidate.status == 'Rejected':
-        subject = "Update regarding your application at Enterprise"
-        body = f"Dear {candidate.name},\n\nThank you for applying. Unfortunately, we are not moving forward with your application at this time.\n\nBest regards,\nHR Team"
-        email = EmailMessage(subject, body, from_email, [candidate.email])
-        email.send(fail_silently=False)
-
-    elif candidate.status == 'Shortlisted':
-        subject = "Interview Invitation & Corporate Calendar Link - Enterprise Talent Matrix"
-        body = f"Dear {candidate.name},\n\nCongratulations! You have been shortlisted for an interview.\n\nMeeting Link: https://meet.google.com/abc-xyz"
-        email = EmailMessage(subject, body, from_email, [candidate.email])
-
-        # Attach Calendar (.ics) file
-        ics_data = generate_ics_calendar_invite(candidate.email, "Upcoming")
-        email.attach('interview_invite.ics', ics_data, 'text/calendar')
+    try:
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'tanu424219@gmail.com')
         
-        email.send(fail_silently=False)
+        # Check candidate status
+        status = getattr(candidate, 'status', 'Shortlisted')
+
+        if status == 'Rejected':
+            subject = "Update regarding your application at Enterprise"
+            body = f"Dear {candidate.name},\n\nThank you for applying. Unfortunately, we are not moving forward with your application at this time."
+            
+            email = EmailMessage(subject, body, from_email, [candidate.email])
+            email.send(fail_silently=True)
+
+        elif status == 'Shortlisted':
+            subject = "Interview Invitation & Corporate Calendar Link - Enterprise Talent Matrix"
+            body = f"Dear {candidate.name},\n\nCongratulations! You have been shortlisted for an interview."
+            
+            email = EmailMessage(subject, body, from_email, [candidate.email])
+
+            # Standard iCalendar Event Format
+            now = datetime.datetime.now(datetime.timezone.utc)
+            start_time = (now + datetime.timedelta(days=1)).strftime('%Y%m%dT%H0000Z')
+            end_time = (now + datetime.timedelta(days=1, hours=1)).strftime('%Y%m%dT%H0000Z')
+
+            ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Enterprise Talent Matrix//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:interview-{getattr(candidate, 'id', 1)}-{now.strftime('%Y%m%d%H%M%S')}@enterprise.com
+DTSTAMP:{now.strftime('%Y%m%dT%H%M%SZ')}
+DTSTART:{start_time}
+DTEND:{end_time}
+SUMMARY:Technical Interview - Enterprise Talent Matrix
+DESCRIPTION:Your profile has been shortlisted! Please join the interview.
+STATUS:CONFIRMED
+ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:MAILTO:{candidate.email}
+END:VEVENT
+END:VCALENDAR"""
+
+            email.attach('interview_invite.ics', ics_content, 'text/calendar; method=REQUEST')
+            email.send(fail_silently=True)
+
+    except Exception as e:
+        print(f"Suppressing email execution error: {e}")
