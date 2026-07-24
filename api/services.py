@@ -24,9 +24,14 @@ def parse_resume_pdf(file_path):
     found_skills = [skill.capitalize() for skill in known_skills if re.search(r'\b' + skill + r'\b', extracted_text.lower())]
 
     # ATS Resume Formatting Score based on keyword density & length
-    ats_score = min(100.0, float(len(found_skills) * 12 + (50 if len(extracted_text) > 500 else 20)))
+    # Dynamic ATS Scoring Logic
+    base_length_score = min(40.0, (len(extracted_text) / 1000.0) * 20)  # Text length up to 40 pts
+    skill_score = min(50.0, float(len(found_skills)) * 10)              # 10 pts per skill up to 50 pts
+    email_bonus = 10.0 if email_match else 0.0                                 # 10 pts for valid email format
 
-    return extracted_text, email, ", ".join(found_skills), ats_score
+    ats_score = min(100.0, round(base_length_score + skill_score + email_bonus, 1))
+
+    return extracted_text,(email_match.group(0) if email_match else""), ", ".join(found_skills), ats_score
 
 def generate_ics_calendar_invite(candidate_email, interview_date_str):
     """Generates a professional .ics calendar file for interview scheduling"""

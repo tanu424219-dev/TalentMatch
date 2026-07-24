@@ -126,6 +126,7 @@ def match_resources(request, client_id):
             'candidate': cand,
             'status': cand_status,  # Per-company status passed to template
             'total_score': total_score,
+            'ats_score': cand.ats_score,
             'skill_score': round(skill_score, 1),
             'exp_score': round(exp_score, 1),
             'budget_score': round(budget_score, 1),
