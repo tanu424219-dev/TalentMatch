@@ -136,5 +136,6 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'tanu424219@gmail.com'  # Jis Gmail account se abhi password banaya hai
 EMAIL_HOST_PASSWORD = 'gwiw plcw fhzj znqa'         # Password yahan daal diya hai
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+DEFAULT_FROM_EMAIL = 'tanu424219@gmail.com'
+
 

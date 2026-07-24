@@ -101,7 +101,7 @@ def match_resources(request, client_id):
             budget_reason = f"Exceeds budget by ₹{diff} LPA: Deducted points"
 
         # 4. ATS Score weight (Max 10 points)
-        ats_points = float(cand.ats_score) * 0.1 if cand.ats_score else 0.0
+        ats_points = float(cand.ats_score or 0) * 0.1 
 
         raw_total = skill_score + exp_score + budget_score + ats_points
         total_score = round(min(100.0, raw_total), 2)
