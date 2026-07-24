@@ -17,8 +17,12 @@ def match_resources(request, client_id):
                     client=client,
                     defaults={'status': action}
                 )
-                send_automated_status_email(cand)
-        return redirect(f'/api/match-resources/{client.id}/')
+
+                try:
+                    send_automated_status_email(cand)
+                except Exception as e:
+                    print(f"Email error: {e}")
+                
 
     query = request.GET.get('q')
     if query:

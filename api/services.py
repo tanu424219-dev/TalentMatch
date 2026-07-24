@@ -44,7 +44,7 @@ def generate_ics_calendar_invite(candidate_email, interview_date_str):
     event.add('summary', 'Technical Interview - Enterprise Talent Matrix')
     event.add('description', 'Your profile has been shortlisted! Please join the interview using the shared corporate calendar link.')
 
-    start_time = datetime.datetime.now() + datetime.timedelta(days=2)
+    start_time = datetime.datetime.now() + datetime.timedelta(days=1)
     event.add('dtstart', start_time)
     event.add('dtend', start_time + datetime.timedelta(hours=1))
     
@@ -60,7 +60,7 @@ def send_automated_status_email(candidate):
         subject = "Update regarding your application at Enterprise"
         body = f"Dear {candidate.name},\n\nThank you for applying. Unfortunately, we are not moving forward with your application at this time.\n\nBest regards,\nHR Team"
         email = EmailMessage(subject, body, from_email, [candidate.email])
-        email.send(fail_silently=True)
+        email.send(fail_silently=False)
 
     elif candidate.status == 'Shortlisted':
         subject = "Interview Invitation & Corporate Calendar Link - Enterprise Talent Matrix"
@@ -71,4 +71,4 @@ def send_automated_status_email(candidate):
         ics_data = generate_ics_calendar_invite(candidate.email, "Upcoming")
         email.attach('interview_invite.ics', ics_data, 'text/calendar')
         
-        email.send(fail_silently=True)
+        email.send(fail_silently=False)
