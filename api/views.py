@@ -8,6 +8,8 @@ def match_resources(request, client_id):
     if request.method == 'POST':
         selected_ids = request.POST.getlist('selected_candidates')
         action = request.POST.get('bulk_action')
+        print(f"DEBUG POST TRIGGERED -> Action:'{action}', Selected IDs: {selected_ids}")
+        print(f"DEBUG CLIENT ID -> {client_id}")
         if selected_ids and action:
             candidates_to_update = DeveloperCandidate.objects.filter(id__in=selected_ids)
             for cand in candidates_to_update:
