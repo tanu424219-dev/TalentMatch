@@ -1,3 +1,4 @@
+import threading
 import datetime
 import re
 import fitz  # PyMuPDF
@@ -83,3 +84,8 @@ def send_automated_status_email(candidate):
 
     except Exception as e:
         print(f"Email error safely ignored: {e}")
+        # 👇 Line 85 ke theek neeche yeh 5 lines add kar do:
+def trigger_email_in_background(candidate):
+    thread = threading.Thread(target=send_automated_status_email, args=(candidate,))
+    thread.daemon = True
+    thread.start()
