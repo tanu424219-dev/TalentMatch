@@ -14,7 +14,7 @@ def parse_resume_pdf(file_path):
             extracted_text += page.get_text()
     except Exception as e:
         print("PDF Parsing Error:", e)
-        return "", "", "", 0.0  # FIX: 0.0 float here instead of []
+        return "", "", "", 0.0
 
     # Simple Regex Extraction logic for Email
     email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', extracted_text)
@@ -60,7 +60,7 @@ def send_automated_status_email(candidate):
         subject = "Update regarding your application at Enterprise"
         body = f"Dear {candidate.name},\n\nThank you for applying. Unfortunately, we are not moving forward with your application at this time.\n\nBest regards,\nHR Team"
         email = EmailMessage(subject, body, from_email, [candidate.email])
-        email.send(fail_silently=False)
+        email.send(fail_silently=True)
 
     elif candidate.status == 'Shortlisted':
         subject = "Interview Invitation & Corporate Calendar Link - Enterprise Talent Matrix"
@@ -71,4 +71,4 @@ def send_automated_status_email(candidate):
         ics_data = generate_ics_calendar_invite(candidate.email, "Upcoming")
         email.attach('interview_invite.ics', ics_data, 'text/calendar')
         
-        email.send(fail_silently=False)
+        email.send(fail_silently=True)
