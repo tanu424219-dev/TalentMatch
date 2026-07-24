@@ -1,9 +1,9 @@
-import fitz  # PyMuPDF
+import datetime
 import re
+import fitz  # PyMuPDF
 from django.core.mail import EmailMessage
 from django.conf import settings
-from icalendar import Calendar, Event
-import datetime
+
 
 def parse_resume_pdf(file_path):
     """Extracts text, name, email, and skills automatically from PDF Resumes (ATS Feature)"""
@@ -34,54 +34,52 @@ def parse_resume_pdf(file_path):
     return extracted_text, email, ", ".join(found_skills), ats_score
 
 
-import datetime
-from django.core.mail import EmailMessage
-from django.conf import settings
-
 def send_automated_status_email(candidate):
     try:
         from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'tanu424219@gmail.com')
-        
-        # Check candidate status
         status = getattr(candidate, 'status', 'Shortlisted')
+        cand_email = getattr(candidate, 'email', '')
+
+        if not cand_email:
+            return
 
         if status == 'Rejected':
             subject = "Update regarding your application at Enterprise"
-            body = f"Dear {candidate.name},\n\nThank you for applying. Unfortunately, we are not moving forward with your application at this time."
-            
-            email = EmailMessage(subject, body, from_email, [candidate.email])
+            body = f"Dear {getattr(candidate, 'name', 'Candidate')},\n\nThank you for applying. Unfortunately, we are not moving forward with your application at this time."
+            email = EmailMessage(subject, body, from_email, [cand_email])
             email.send(fail_silently=True)
 
         elif status == 'Shortlisted':
             subject = "Interview Invitation & Corporate Calendar Link - Enterprise Talent Matrix"
-            body = f"Dear {candidate.name},\n\nCongratulations! You have been shortlisted for an interview."
+            body = f"Dear {getattr(candidate, 'name', 'Candidate')},\n\nCongratulations! You have been shortlisted for an interview."
             
-            email = EmailMessage(subject, body, from_email, [candidate.email])
+            email = EmailMessage(subject, body, from_email, [cand_email])
 
-            # Standard iCalendar Event Format
             now = datetime.datetime.now(datetime.timezone.utc)
             start_time = (now + datetime.timedelta(days=1)).strftime('%Y%m%dT%H0000Z')
             end_time = (now + datetime.timedelta(days=1, hours=1)).strftime('%Y%m%dT%H0000Z')
 
-            ics_content = f"""BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Enterprise Talent Matrix//EN
-CALSCALE:GREGORIAN
-METHOD:REQUEST
-BEGIN:VEVENT
-UID:interview-{getattr(candidate, 'id', 1)}-{now.strftime('%Y%m%d%H%M%S')}@enterprise.com
-DTSTAMP:{now.strftime('%Y%m%dT%H%M%SZ')}
-DTSTART:{start_time}
-DTEND:{end_time}
-SUMMARY:Technical Interview - Enterprise Talent Matrix
-DESCRIPTION:Your profile has been shortlisted! Please join the interview.
-STATUS:CONFIRMED
-ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:MAILTO:{candidate.email}
-END:VEVENT
-END:VCALENDAR"""
+            ics_content = (
+                "BEGIN:VCALENDAR\n"
+                "VERSION:2.0\n"
+                "PRODID:-//Enterprise Talent Matrix//EN\n"
+                "CALSCALE:GREGORIAN\n"
+                "METHOD:REQUEST\n"
+                "BEGIN:VEVENT\n"
+                f"UID:interview-{getattr(candidate, 'id', 1)}-{now.strftime('%Y%m%d%H%M%S')}@enterprise.com\n"
+                f"DTSTAMP:{now.strftime('%Y%m%dT%H%M%SZ')}\n"
+                f"DTSTART:{start_time}\n"
+                f"DTEND:{end_time}\n"
+                "SUMMARY:Technical Interview - Enterprise Talent Matrix\n"
+                "DESCRIPTION:Your profile has been shortlisted! Please join the interview.\n"
+                "STATUS:CONFIRMED\n"
+                f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:MAILTO:{cand_email}\n"
+                "END:VEVENT\n"
+                "END:VCALENDAR"
+            )
 
             email.attach('interview_invite.ics', ics_content, 'text/calendar; method=REQUEST')
             email.send(fail_silently=True)
 
     except Exception as e:
-        print(f"Suppressing email execution error: {e}")
+        print(f"Email error safely ignored: {e}")

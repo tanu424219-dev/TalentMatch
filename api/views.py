@@ -26,6 +26,7 @@ def match_resources(request, client_id):
                 send_automated_status_email(cand)
             except Exception as mail_err:
                 print(f"Email Failed for {cand.name}: {mail_err}")
+        return redirect('match_resources',client_id=client_id)
 
     query = request.GET.get('q')
     if query:
