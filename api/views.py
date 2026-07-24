@@ -27,7 +27,7 @@ def match_resources(request, client_id):
                 except Exception as mail_err:
                     print(f"Email Failed for {cand.name}: {mail_err}")
 
-            return redirect('match_resources', client_id=client_id)
+            return redirect(f'/api/match-resources/{client_id}/')
 
     query = request.GET.get('q')
     if query:
