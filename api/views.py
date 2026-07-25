@@ -24,15 +24,24 @@ def match_resources(request, client_id):
                 cand.status = action
                 
                 # Crash-proof Email Trigger
-                # Debug Direct Email Trigger
+                # Real Error Debugger Code
                 try:
                     print(f"DEBUG: Attempting to send email to {cand.email}")
-                    trigger_email_in_background(cand)
-                    print(f"✅ EMAIL SENT SUCCESSFULLY TO: {cand.email}")
-                except Exception as mail_err:
-                    print(f"❌ EMAIL FAILED FOR {cand.name}: {mail_err}")
+                    
+                    # Background function ke bajaye direct Django ka send_mail use kar rahe hain test ke liye
+                    from django.core.mail import send_mail
+                    from django.conf import settings
 
-            return redirect(f'/api/match-resources/{client_id}/')
+                    send_mail(
+                        subject=f"Status Update: {cand.status}",
+                        message=f"Hello {cand.name}, your application status is updated to {cand.status}.",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[cand.email],
+                        fail_silently=False  # Direct Error Pop Hoga Agar Fail Hua Toh
+                    )
+                    print(f"✅ EMAIL ACTUALLY DELIVERED TO: {cand.email}")
+                except Exception as mail_err:
+                    print(f"❌ REAL EMAIL ERROR FOR {cand.name}: {str(mail_err)}")
 
     query = request.GET.get('q')
     if query:
