@@ -92,7 +92,7 @@ def trigger_email_in_background(candidate):
 
 import resend
 
-resend.api_key = "re_ApbErFwJ_PRjhXqQE59uCCvCYYZZA7XwK"
+resend.api_key = "Re_ZHJ7sYa2_NPHTmcRitxP2CVYPadNzeowR"
 
 def send_email_func(cand):
     try:
