@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from .models import CompanyClient, DeveloperCandidate, Application
-from .services import parse_resume_pdf, trigger_email_in_background
+from .services import parse_resume_pdf, send_status_email
 
 def match_resources(request, client_id):
     client = get_object_or_404(CompanyClient, id=client_id)
@@ -24,10 +24,13 @@ def match_resources(request, client_id):
                 cand.status = action
                 
                 # Crash-proof Email Trigger
+                # Debug Direct Email Trigger
                 try:
-                    trigger_email_in_background(cand)
+                    print(f"DEBUG: Attempting to send email to {cand.email}")
+                    send_status_email(cand)
+                    print(f"✅ EMAIL SENT SUCCESSFULLY TO: {cand.email}")
                 except Exception as mail_err:
-                    print(f"Email Failed for {cand.name}: {mail_err}")
+                    print(f"❌ EMAIL FAILED FOR {cand.name}: {mail_err}")
 
             return redirect(f'/api/match-resources/{client_id}/')
 
