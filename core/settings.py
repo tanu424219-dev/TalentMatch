@@ -130,13 +130,14 @@ UNFOLD = {
 }
 
 # Email Configuration
+import os
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
+EMAIL_PORT = 465
 EMAIL_USE_TLS = False
 EMAIL_USE_SSL = True
-EMAIL_HOST_USER = 'tanu424219@gmail.com'  # Jis Gmail account se abhi password banaya hai
-EMAIL_HOST_PASSWORD = 'gwiwplcwfhzjznqa'         # Password yahan daal diya hai
-DEFAULT_FROM_EMAIL = 'tanu424219@gmail.com'
-
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'tanu424219@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
