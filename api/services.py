@@ -48,7 +48,7 @@ def send_automated_status_email(candidate):
             subject = "Update regarding your application at Enterprise"
             body = f"Dear {getattr(candidate, 'name', 'Candidate')},\n\nThank you for applying. Unfortunately, we are not moving forward with your application at this time."
             email = EmailMessage(subject, body, from_email, [cand_email])
-            email.send(fail_silently=True)
+            email.send(fail_silently=False)
 
         elif status == 'Shortlisted':
             subject = "Interview Invitation & Corporate Calendar Link - Enterprise Talent Matrix"
