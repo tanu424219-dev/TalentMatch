@@ -27,7 +27,7 @@ def match_resources(request, client_id):
                 # Debug Direct Email Trigger
                 try:
                     print(f"DEBUG: Attempting to send email to {cand.email}")
-                    send_status_email(cand)
+                    trigger_email_in_background(cand)
                     print(f"✅ EMAIL SENT SUCCESSFULLY TO: {cand.email}")
                 except Exception as mail_err:
                     print(f"❌ EMAIL FAILED FOR {cand.name}: {mail_err}")
