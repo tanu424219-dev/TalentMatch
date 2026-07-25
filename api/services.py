@@ -89,3 +89,34 @@ def trigger_email_in_background(candidate):
     thread = threading.Thread(target=send_automated_status_email, args=(candidate,))
     thread.daemon = True
     thread.start()
+
+import resend
+
+resend.api_key = "re_ApbErFwJ_PRjhXqQE59uCCvCYYZZA7XwK"
+
+def send_email_func(cand):
+    try:
+        print(f"DEBUG: Attempting to send Resend email to {cand.email}")
+        params = {
+            "from": "onboarding@resend.dev",
+            "to": [cand.email],
+            "subject": f"Application Status Updated: {cand.status}",
+            "html": f"""
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Status Update</h2>
+                    <p>Hello <strong>{cand.name}</strong>,</p>
+                    <p>Your application status has been updated to: <b style="color: #2563eb;">{cand.status}</b></p>
+                    <br>
+                    <p>Best regards,<br>Hiring Team</p>
+                </div>
+            """
+        }
+        response = resend.Emails.send(params)
+        print(f"✅ RESEND EMAIL DELIVERED TO {cand.email} | Response ID: {response}")
+    except Exception as e:
+        print(f"❌ RESEND EMAIL ERROR FOR {cand.name}: {str(e)}")
+
+def trigger_email_in_background(cand):
+    thread = threading.Thread(target=send_email_func, args=(cand,))
+    thread.daemon = True
+    thread.start()
