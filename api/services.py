@@ -91,12 +91,43 @@ def trigger_email_in_background(candidate):
     thread.start()
 
 import resend
+import base64
+import datetime
 
-resend.api_key = "Re_ZHJ7sYa2_NPHTmcRitxP2CVYPadNzeowR"
+resend.api_key = "re_ZHJ7sYa2_NPHTmcRitxP2CVYPadNzeowR"
 
 def send_email_func(cand):
     try:
         print(f"DEBUG: Attempting to send Resend email to {cand.email}")
+        
+        # Current time and dynamic event timing (Kal ka event)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        start_time = (now + datetime.timedelta(days=1)).strftime('%Y%m%dT%H0000Z')
+        end_time = (now + datetime.timedelta(days=1, hours=1)).strftime('%Y%m%dT%H0000Z')
+
+        # Generate Calendar ICS String
+        ics_content = (
+            "BEGIN:VCALENDAR\n"
+            "VERSION:2.0\n"
+            "PRODID:-//Enterprise Talent Matrix//EN\n"
+            "CALSCALE:GREGORIAN\n"
+            "METHOD:REQUEST\n"
+            "BEGIN:VEVENT\n"
+            f"UID:interview-{getattr(cand, 'id', 1)}-{now.strftime('%Y%m%dT%H%M%S')}@enterprise.com\n"
+            f"DTSTAMP:{now.strftime('%Y%m%dT%H%M%S')}Z\n"
+            f"DTSTART:{start_time}\n"
+            f"DTEND:{end_time}\n"
+            "SUMMARY:Technical Interview - Enterprise Talent Matrix\n"
+            "DESCRIPTION:Your profile has been shortlisted! Please join the interview.\n"
+            "STATUS:CONFIRMED\n"
+            f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:MAILTO:{cand.email}\n"
+            "END:VEVENT\n"
+            "END:VCALENDAR"
+        )
+
+        # Encode ICS to Base64 for Resend
+        encoded_ics = base64.b64encode(ics_content.encode('utf-8')).decode('utf-8')
+
         params = {
             "from": "onboarding@resend.dev",
             "to": [cand.email],
@@ -106,13 +137,21 @@ def send_email_func(cand):
                     <h2>Status Update</h2>
                     <p>Hello <strong>{cand.name}</strong>,</p>
                     <p>Your application status has been updated to: <b style="color: #2563eb;">{cand.status}</b></p>
+                    <p>An interview calendar invite has been attached to this email. Please click on the attachment or RSVP directly in your email client.</p>
                     <br>
                     <p>Best regards,<br>Hiring Team</p>
                 </div>
-            """
+            """,
+            "attachments": [
+                {
+                    "filename": "interview_invite.ics",
+                    "content": encoded_ics,
+                }
+            ]
         }
+
         response = resend.Emails.send(params)
-        print(f"✅ RESEND EMAIL DELIVERED TO {cand.email} | Response ID: {response}")
+        print(f"✅ RESEND EMAIL WITH CALENDAR DELIVERED TO {cand.email} | Response ID: {response}")
     except Exception as e:
         print(f"❌ RESEND EMAIL ERROR FOR {cand.name}: {str(e)}")
 
