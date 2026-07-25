@@ -94,7 +94,7 @@ import resend
 import base64
 import datetime
 
-resend.api_key = "re_ZHJ7sYa2_NPHTmcRitxP2CVYPadNzeowR"
+resend.api_key = os.environ.get("RESEND_API_KEY")
 
 def send_email_func(cand):
     try:
