@@ -2,7 +2,7 @@ import csv
 from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.utils.html import format_html
-from .models import CompanyClient, DeveloperCandidate
+from .models import Application, CompanyClient, DeveloperCandidate
 from .services import parse_resume_pdf, send_automated_status_email
 
 
@@ -30,6 +30,11 @@ class CompanyClientAdmin(admin.ModelAdmin):
 
     open_matching_portal.short_description = "Portal Link"
 
+@admin.register(Application)
+class ApplicationAdmin(admin.ModelAdmin):
+    list_display = ('candidate','client','status','company_ats_score','created_at')
+    list_filter = ('client','status')
+    search_fields = ('candidate_name','client_company_name')
 
 @admin.register(DeveloperCandidate)
 class DeveloperCandidateAdmin(admin.ModelAdmin):

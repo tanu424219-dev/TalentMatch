@@ -45,6 +45,9 @@ class DeveloperCandidate(models.Model):
         else:
             timestamp = timezone.now().strftime('%Y-%m-%d %H:%M')
             self.status_history = f"[{timestamp}] Application created with status 'Applied'\n"
+        skill_list = [s.strip() for s in self.skills.split(',')] if self.skills else[]
+        exp_pts = 10 if(self.experience_years and self.experience_years > 0) else 0
+        self.ats_score = round(min(100.0,(len(skill_list)*20.0) + exp_pts + 30.0),1)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -63,8 +66,10 @@ class Application(models.Model):
     company_ats_score = models.FloatField(default=0.0)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.candidate.name} - {self.client.company_name} ({self.status})"
+
     class Meta:
         unique_together = ('candidate', 'client')
 
-    def __str__(self):
-        return f"{self.candidate.name} - {self.client.company_name} ({self.status})"
+   
