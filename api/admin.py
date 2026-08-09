@@ -2,6 +2,7 @@ import csv
 from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from .models import Application, CompanyClient, DeveloperCandidate
 from .services import parse_resume_pdf, send_automated_status_email
 
@@ -12,7 +13,6 @@ class CompanyClientAdmin(admin.ModelAdmin):
     search_fields = ('company_name', 'required_tech')
 
     def open_matching_portal(self, obj):
-        # Yeh 'obj.id' aapne aap Google, Dutt IT ya har naye client ki ID nikal lega
         url = f"/api/match-resources/{obj.id}/"
         return format_html(
             '<a style="'
@@ -30,36 +30,85 @@ class CompanyClientAdmin(admin.ModelAdmin):
 
     open_matching_portal.short_description = "Portal Link"
 
+
 @admin.register(Application)
 class ApplicationAdmin(admin.ModelAdmin):
-    list_display = ('candidate','client','status','company_ats_score','created_at')
-    list_filter = ('client','status')
-    search_fields = ('candidate_name','client_company_name')
+    # Company ATS Score column yahan se permanently hata diya gaya hai
+    list_display = ('candidate', 'client', 'status', 'created_at')
+    list_filter = ('client', 'status')
+    search_fields = ('candidate__name', 'client__company_name')
+
 
 @admin.register(DeveloperCandidate)
 class DeveloperCandidateAdmin(admin.ModelAdmin):
-    # Minimal Addition: Status Badge & ATS Score display
-    list_display = ('name', 'email', 'experience_years', 'expected_salary_lps', 'colored_status', 'ats_score')
+    # Photo ke exact 6 columns: NAME, EMAIL, EXPERIENCE, APPLIED COMPANIES, COMPANY STATUSES, ATS SCORES
+    list_display = ('name', 'email', 'get_company_experience', 'get_applied_companies', 'get_company_statuses', 'get_company_scores')
     list_filter = ('status', 'qualification', 'experience_years')
     search_fields = ('name', 'email', 'skills')
     readonly_fields = ('ats_score', 'status_history')
 
-    # Status Pill Badge Feature (Visual Improvement)
-    def colored_status(self, obj):
-        colors = {
-            'Selected': '#10b981',
-            'Shortlisted': '#3b82f6',
-            'Rejected': '#ef4444',
-            'Pending': '#f59e0b'
-        }
-        color = colors.get(obj.status, '#6b7280')
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">{}</span>',
-            color, obj.status
-        )
-    colored_status.short_description = "Status"
+    # Column 3: Company-wise Experience (Candidate vs Required)
+    def get_company_experience(self, obj):
+        apps = obj.applications.all()
+        if not apps.exists():
+            return f"{obj.experience_years or 0} yrs"
+        
+        exp_html = []
+        for app in apps:
+            req_exp = app.client.min_experience_years
+            cand_exp = obj.experience_years or 0.0
+            exp_html.append(f'<b>{app.client.company_name}:</b> {cand_exp} yrs (Req: {req_exp} yrs)')
+        return mark_safe("<br>".join(exp_html))
+    get_company_experience.short_description = "EXPERIENCE"
 
-    # CSV Data Export Action (10/10 Evaluation Feature)
+    # Column 4: Applied Companies List
+    def get_applied_companies(self, obj):
+        apps = obj.applications.all()
+        if not apps.exists():
+            return "-"
+        companies = [app.client.company_name for app in apps]
+        return mark_safe("<br>".join(companies))
+    get_applied_companies.short_description = "APPLIED COMPANIES"
+
+    # Column 5: Colored Company Status Badges
+    def get_company_statuses(self, obj):
+        apps = obj.applications.all()
+        if not apps.exists():
+            return "-"
+        
+        status_html = []
+        for app in apps:
+            color = "#10b981" if app.status == 'Selected' else ("#3b82f6" if app.status == 'Shortlisted' else ("#ef4444" if app.status == 'Rejected' else "#f59e0b"))
+            status_html.append(f'<span style="background-color: {color}; color: white; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: bold;">{app.client.company_name}: {app.status}</span>')
+        return mark_safe("<br>".join(status_html))
+    get_company_statuses.short_description = "COMPANY STATUSES"
+
+    # Column 6: Mapped ATS Scores Per Company
+    def get_company_scores(self, obj):
+        apps = obj.applications.all()
+        if not apps.exists():
+            return "-"
+        
+        scores_html = []
+        for app in apps:
+            client = app.client
+            req_skills = [s.strip().lower() for s in client.required_tech.split(',')] if client.required_tech else []
+            cand_skills = [s.strip().lower() for s in obj.skills.split(',')] if obj.skills else []
+            
+            matched = set(req_skills).intersection(set(cand_skills))
+            skill_ratio = (len(matched) / len(req_skills)) if req_skills else 1.0
+            
+            skill_score = skill_ratio * 40
+            exp_score = 30 if (obj.experience_years and obj.experience_years >= client.min_experience_years) else 15
+            budget_score = 30 if (obj.expected_salary_lps and obj.expected_salary_lps <= client.max_budget_lps) else 10
+            
+            total_score = round(skill_score + exp_score + budget_score, 1)
+            scores_html.append(f'<b>{client.company_name}: {total_score}/100</b>')
+            
+        return mark_safe("<br>".join(scores_html))
+    get_company_scores.short_description = "ATS SCORES"
+
+    # CSV Data Export Feature
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
         field_names = [field.name for field in meta.fields]
@@ -70,17 +119,16 @@ class DeveloperCandidateAdmin(admin.ModelAdmin):
         for obj in queryset:
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
+
     export_as_csv.short_description = "Export Selected Candidates to CSV 📊"
     actions = [export_as_csv]
 
-    def save_model(self, self_request, obj, form, change):
-        # 3. Duplicate Application Detection Feature
-        if not change:  # Creating new candidate
+    def save_model(self, request, obj, form, change):
+        if not change:
             if DeveloperCandidate.objects.filter(email=obj.email).exists():
-                messages.error(self_request, f"Duplicate Warning: An application with email {obj.email} already exists!")
+                messages.error(request, f"Duplicate Warning: An application with email {obj.email} already exists!")
                 return
 
-        # 1. PDF to Text Parser & ATS Feature execution on upload
         if obj.resume:
             try:
                 text, parsed_email, parsed_skills, raw_ats_score = parse_resume_pdf(obj.resume.path)
@@ -88,8 +136,7 @@ class DeveloperCandidateAdmin(admin.ModelAdmin):
                     obj.email = parsed_email
                 if not obj.skills:
                     obj.skills = parsed_skills
-
-                # ATS Score ko safely float mein convert karne ke liye:
+                
                 try:
                     obj.ats_score = float(raw_ats_score)
                 except (TypeError, ValueError):
@@ -99,10 +146,5 @@ class DeveloperCandidateAdmin(admin.ModelAdmin):
                 print("Could not parse PDF automatically:", e)
                 obj.ats_score = 0.0
 
-            except Exception as e:
-                print("Could not parse PDF automatically:", e)
-
-        super().save_model(self_request, obj, form, change)
-
-        # 2. Automated status email & calendar trigger
+        super().save_model(request, obj, form, change)
         send_automated_status_email(obj)
